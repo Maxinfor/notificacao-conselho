@@ -8,13 +8,13 @@
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 15px; margin: 0; }
         .container { background-color: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
-        .tab-btn { width: 48%; padding: 10px; cursor: pointer; border: none; border-radius: 6px; background: #e0e0e0; }
+        .tab-btn { width: 48%; padding: 10px; cursor: pointer; border: none; border-radius: 6px; background: #e0e0e0; font-weight: bold; }
         .active-tab { background: #007bff; color: white; }
-        input { text-transform: uppercase; width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; }
+        input { text-transform: uppercase; width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; }
         .view { display: none; margin-top: 20px; }
         .active-view { display: block; }
-        .item-lista { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
-        button.action { width: 100%; padding: 12px; background: #25D366; color: white; border: none; border-radius: 6px; margin-top: 10px; }
+        .item-lista { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; background: #fafafa; margin-bottom: 5px; border-radius: 4px; }
+        .btn-acao { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 5px; color: white; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -24,16 +24,22 @@
     <button class="tab-btn" onclick="mostrar('pesquisa')">PESQUISAR</button>
 
     <div id="cadastro" class="view active-view">
-        <h3>NOVA NOTIFICAÇÃO</h3>
+        <h3 style="text-align:center;">NOVA NOTIFICAÇÃO</h3>
         <input type="text" id="resp" placeholder="RESPONSÁVEL">
         <input type="text" id="crianca" placeholder="CRIANÇA (SE HOUVER)">
         <input type="date" id="data">
-        <button class="action" onclick="salvarDados()">SALVAR DADOS</button>
+        <input type="time" id="horario">
+        <input type="text" id="conselheiro" placeholder="CONSELHEIRO(A)">
+        <input type="tel" id="telefone" placeholder="TELEFONE (DDD+NUMERO)">
+        
+        <button class="btn-acao" style="background: #25D366;" onclick="enviarNotificacao()">ENVIAR NOTIFICAÇÃO (WHATSAPP)</button>
+        <button class="btn-acao" style="background: #007bff;" onclick="enviarConfirmacao()">CONFIRMAR AO CONSELHEIRO (AZUL)</button>
+        <button class="btn-acao" style="background: #6c757d;" onclick="salvarDados()">SALVAR NO SISTEMA</button>
     </div>
 
     <div id="pesquisa" class="view">
-        <h3>BUSCAR ATENDIMENTOS</h3>
-        <input type="text" id="inputBusca" placeholder="DIGITE O NOME..." onkeyup="filtrarLista()">
+        <h3 style="text-align:center;">BUSCAR ATENDIMENTOS</h3>
+        <input type="text" id="inputBusca" placeholder="DIGITE O NOME DO RESPONSÁVEL..." onkeyup="filtrarLista()">
         <div id="listaResultados"></div>
     </div>
 </div>
@@ -48,17 +54,41 @@
         event.target.classList.add('active-tab');
     }
 
+    function formatarDataBR(data) {
+        if (!data) return "";
+        const [ano, mes, dia] = data.split('-');
+        return `${dia}/${mes}/${ano}`;
+    }
+
     function salvarDados() {
         const novo = {
             resp: document.getElementById('resp').value,
             crianca: document.getElementById('crianca').value,
-            data: document.getElementById('data').value
+            data: document.getElementById('data').value,
+            hora: document.getElementById('horario').value,
+            conselheiro: document.getElementById('conselheiro').value,
+            tel: document.getElementById('telefone').value
         };
         bancoDados.push(novo);
         localStorage.setItem('atendimentos', JSON.stringify(bancoDados));
         alert("SALVO COM SUCESSO!");
-        document.getElementById('resp').value = '';
-        document.getElementById('crianca').value = '';
+        document.querySelectorAll('input').forEach(i => i.value = '');
+    }
+
+    function enviarNotificacao() {
+        const resp = document.getElementById('resp').value;
+        const tel = document.getElementById('telefone').value.replace(/\D/g, '');
+        const dataFormatada = formatarDataBR(document.getElementById('data').value);
+        const msg = `BOM DIA, AQUI É O CONSELHO TUTELAR. VOCÊ ESTÁ SENDO NOTIFICADO(A) A COMPARECER NO DIA ${dataFormatada} ÀS ${document.getElementById('horario').value}.`;
+        window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function enviarConfirmacao() {
+        const resp = document.getElementById('resp').value;
+        const conselheiro = document.getElementById('conselheiro').value;
+        const dataFormatada = formatarDataBR(document.getElementById('data').value);
+        const msg = `OLÁ ${conselheiro}, A PRESENÇA DO RESPONSÁVEL ${resp} PARA O ATENDIMENTO DO DIA ${dataFormatada} ÀS ${document.getElementById('horario').value} FOI CONFIRMADA.`;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
     function filtrarLista() {
@@ -66,13 +96,12 @@
         const lista = document.getElementById('listaResultados');
         lista.innerHTML = '';
         
-        bancoDados.filter(item => 
-            item.resp.toUpperCase().includes(busca) || 
-            item.crianca.toUpperCase().includes(busca)
-        ).forEach(item => {
+        bancoDados.filter(item => item.resp.toUpperCase().includes(busca)).forEach(item => {
             lista.innerHTML += `<div class="item-lista">
-                <strong>${item.resp}</strong><br>
-                CRIANÇA: ${item.crianca || 'N/A'} | DATA: ${item.data}
+                <strong>RESP: ${item.resp}</strong><br>
+                CRIANÇA: ${item.crianca || 'N/A'}<br>
+                DATA: ${formatarDataBR(item.data)} | HORA: ${item.hora}<br>
+                CONSELHEIRO: ${item.conselheiro}
             </div>`;
         });
     }
